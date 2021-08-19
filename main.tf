@@ -121,7 +121,18 @@ resource "aws_security_group" "allow_ssh_https" {
       prefix_list_ids  = null
       security_groups  = null
       self             = null
-    }
+    },
+    {
+      description      = "Internal traffic"
+      from_port        = 0
+      to_port          = 0
+      protocol         = "-1"
+      cidr_blocks      = [var.vpc_prefix]
+      ipv6_cidr_blocks = null
+      prefix_list_ids  = null
+      security_groups  = null
+      self             = null
+    },
   ]
 
   egress = [
@@ -171,7 +182,7 @@ resource "aws_eip" "one" {
   ]
 }
 
-# Create a VM
+# Create VMs
 resource "aws_instance" "test-server" {
   count = var.number_of_vms
   ami = var.default_ami
@@ -187,13 +198,30 @@ resource "aws_instance" "test-server" {
   user_data = templatefile("${path.module}/script.sh", { tstamp = "${local.timestamp}" })
 
   tags = {
-    Name = "EC2-${count.index}"
+    Name = "${var.default_instance_type}-${count.index}"
   }
 
   depends_on = [
     aws_eip.one
   ]
+}
 
+#Create S3 Bucket
+resource "aws_s3_bucket" "bkt" {
+  bucket = var.bucket-name
+  acl    = "private"
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    enabled = true
+
+    noncurrent_version_expiration {
+      days = 5
+    }
+  }
 }
 
 output "public-ips" {
