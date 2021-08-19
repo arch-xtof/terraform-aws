@@ -1,4 +1,4 @@
-# terraform-ec2
+# terraform-aws
 Setup several AWS EC2 instances
 
 ## Steps
