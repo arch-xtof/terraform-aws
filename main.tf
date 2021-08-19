@@ -72,9 +72,9 @@ resource "aws_route_table_association" "a" {
 }
 
 # Create a Secuirty Group
-resource "aws_security_group" "allow_ssh" {
-  name        = "allow_ssh"
-  description = "Allow SSH inbound traffic"
+resource "aws_security_group" "allow_ssh_https" {
+  name        = "allow_ssh_https"
+  description = "Allow SSH and HTTPS inbound traffic"
   vpc_id      = aws_vpc.main.id
 
   ingress = [
@@ -110,6 +110,17 @@ resource "aws_security_group" "allow_ssh" {
       prefix_list_ids  = null
       security_groups  = null
       self             = null
+    },
+    {
+      description      = "Bonus port for special needs"
+      from_port        = 7080
+      to_port          = 7080
+      protocol         = "tcp"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = ["::/0"]
+      prefix_list_ids  = null
+      security_groups  = null
+      self             = null
     }
   ]
 
@@ -128,22 +139,32 @@ resource "aws_security_group" "allow_ssh" {
   ]
 
   tags = {
-    Name = "allow_ssh"
+    Name = "allow_ssh_https"
   }
 }
 
-# Create a Network Interface
-resource "aws_network_interface" "int-1" {
+# Create Network Interfaces
+resource "aws_network_interface" "int" {
+  count           = var.number_of_vms
   subnet_id       = aws_subnet.main.id
-  private_ips     = var.local_ips
-  security_groups = [aws_security_group.allow_ssh.id]
+  private_ips     = ["${regex("[^.]*.[^.]*.[^.]*", var.subnet_prefix)}.${10 + count.index}"]
+  security_groups = [aws_security_group.allow_ssh_https.id]
+
+  tags = {
+    Name = "pub-int-${count.index}"
+  }
 }
 
-# Create an EIP
+# Create EIPs
 resource "aws_eip" "one" {
+  count = var.number_of_vms
   vpc                       = true
-  network_interface         = aws_network_interface.int-1.id
-  associate_with_private_ip = var.local_ips[0]
+  network_interface         = aws_network_interface.int[count.index].id
+  associate_with_private_ip = "${regex("[^.]*.[^.]*.[^.]*", var.subnet_prefix)}.${10 + count.index}"
+
+  tags = {
+    Name = "EIP-${count.index}"
+  }
 
   depends_on = [
     aws_internet_gateway.gw,
@@ -152,6 +173,7 @@ resource "aws_eip" "one" {
 
 # Create a VM
 resource "aws_instance" "test-server" {
+  count = var.number_of_vms
   ami = var.default_ami
   instance_type = var.default_instance_type
   availability_zone = var.default_availability_zone
@@ -159,10 +181,14 @@ resource "aws_instance" "test-server" {
 
   network_interface {
     device_index = 0
-    network_interface_id = aws_network_interface.int-1.id
+    network_interface_id = aws_network_interface.int[count.index].id
   }
 
   user_data = templatefile("${path.module}/script.sh", { tstamp = "${local.timestamp}" })
+
+  tags = {
+    Name = "EC2-${count.index}"
+  }
 
   depends_on = [
     aws_eip.one
@@ -170,6 +196,6 @@ resource "aws_instance" "test-server" {
 
 }
 
-output "public-ip" {
-  value = aws_eip.one.public_ip
+output "public-ips" {
+  value = [ for i in range(0, var.number_of_vms) : aws_eip.one[i].public_ip]
 }

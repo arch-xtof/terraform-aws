@@ -1,5 +1,5 @@
-# terraform-nginx
-Setup AWS EC2 with Nginx using Terraform
+# terraform-ec2
+Setup several AWS EC2 instances
 
 ## Steps
 
