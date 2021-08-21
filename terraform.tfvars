@@ -5,5 +5,6 @@ default_ami = "ami-00399ec92321828f5"       # Each region uses different AMIs
 default_instance_type = "t2.micro"
 default_availability_zone = "us-east-2a"    # Avalibility Zone should be within region
 default_ssh_key = "aws-key"                 # Name of SSH key
-number_of_vms = 3                           #
+default_hostname = "arch-xtof"              # Hostname for the machine
+number_of_vms = 3                           
 bucket-name = "archs-versioning-bucket"     # Bucket namespace is shared publicly, choose unique name

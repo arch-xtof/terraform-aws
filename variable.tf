@@ -8,6 +8,7 @@ variable "default_ami" {}
 variable "default_instance_type" {}
 variable "default_availability_zone" {}
 variable "default_ssh_key" {}
+variable "default_hostname" {}
 variable "number_of_vms" {}
 variable "bucket-name" {}
 locals {

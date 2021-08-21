@@ -72,8 +72,8 @@ resource "aws_route_table_association" "a" {
 }
 
 # Create a Secuirty Group
-resource "aws_security_group" "allow_ssh_https" {
-  name        = "allow_ssh_https"
+resource "aws_security_group" "infra_rule" {
+  name        = "infra_rule"
   description = "Allow SSH and HTTPS inbound traffic"
   vpc_id      = aws_vpc.main.id
 
@@ -101,20 +101,9 @@ resource "aws_security_group" "allow_ssh_https" {
       self             = null
     },
     {
-      description      = "HTTPS Traffic"
+      description      = "HTTP Traffic"
       from_port        = 443
       to_port          = 443
-      protocol         = "tcp"
-      cidr_blocks      = ["0.0.0.0/0"]
-      ipv6_cidr_blocks = ["::/0"]
-      prefix_list_ids  = null
-      security_groups  = null
-      self             = null
-    },
-    {
-      description      = "Bonus port for special needs"
-      from_port        = 7080
-      to_port          = 7080
       protocol         = "tcp"
       cidr_blocks      = ["0.0.0.0/0"]
       ipv6_cidr_blocks = ["::/0"]
@@ -150,7 +139,7 @@ resource "aws_security_group" "allow_ssh_https" {
   ]
 
   tags = {
-    Name = "allow_ssh_https"
+    Name = "infra_rule"
   }
 }
 
@@ -159,7 +148,7 @@ resource "aws_network_interface" "int" {
   count           = var.number_of_vms
   subnet_id       = aws_subnet.main.id
   private_ips     = ["${regex("[^.]*.[^.]*.[^.]*", var.subnet_prefix)}.${10 + count.index}"]
-  security_groups = [aws_security_group.allow_ssh_https.id]
+  security_groups = [aws_security_group.infra_rule.id]
 
   tags = {
     Name = "pub-int-${count.index}"
@@ -195,7 +184,7 @@ resource "aws_instance" "test-server" {
     network_interface_id = aws_network_interface.int[count.index].id
   }
 
-  user_data = templatefile("${path.module}/script.sh", { tstamp = "${local.timestamp}" })
+  user_data = templatefile("${path.module}/script.sh", { tstamp = "${local.timestamp}", n = "${count.index}", hostname = var.default_hostname })
 
   tags = {
     Name = "${var.default_instance_type}-${count.index}"
@@ -219,7 +208,7 @@ resource "aws_s3_bucket" "bkt" {
     enabled = true
 
     noncurrent_version_expiration {
-      days = 5
+      days = 30
     }
   }
 }
